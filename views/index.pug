@@ -1,0 +1,29 @@
+html
+    head
+        title BenJ
+        link(rel="stylesheet", href="/css/style.css")
+        link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.0.13/css/all.css", integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp", crossorigin="anonymous")
+        script(src="/js/index.js")
+    body
+        main
+
+            ul
+                for item in articles
+                    li
+                        h3=item.titre
+                        p=item.article
+                        p
+                            button(type="text", onclick="addIdToHiddenInput(" + item.id + ",'plus')" ) +
+                            span=item.upVote
+                        p
+                            button(type="text", onclick="addIdToHiddenInput(" + item.id + ",'less')" ) -
+                            span=item.downVote
+                        form(method="POST", action="/", id="form-" + item.id )
+                            input(type="hidden", name="id", value = item.id)
+                            input(type="hidden", id="changeValue-" + item.id , name="type", value="none")
+
+    form(method="POST", action="/").addArticle
+        input(type="hidden", name="type", value="add")
+        input(type="text", name="titre", placeholder="Titre")
+        textarea(name="article", placeholder="Article")
+        button(type="submit") Envoyer !

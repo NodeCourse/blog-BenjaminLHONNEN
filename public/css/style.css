@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css?family=Ubuntu');
+
+* {
+    font-family: 'Ubuntu', sans-serif;
+}
+
+form.addArticle {
+    background-color: #222222;
+    display: block;
+    color: white;
+    padding: 15px;
+}
+
+form.addArticle button,
+form.addArticle input,
+form.addArticle textarea {
+    background-color: transparent;
+    color: inherit;
+    border: none;
+    display: block;
+    font-size: 2em;
+    margin: 10px auto;
+    width: 80%;
+    padding: 3px;
+    border-bottom: 1px solid whitesmoke;
+}
+
+form.addArticle button,
+form.addArticle input {
+    min-height: 1em;
+}
+
+form.addArticle textarea {
+    min-height: 2em;
+}
