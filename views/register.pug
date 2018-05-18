@@ -1,0 +1,29 @@
+doctype html
+html(lang='fr')
+    head
+        meta(charset='UTF-8')
+        title B & J
+
+        link(rel="icon" type="image/png" href="img/icon.png")
+
+        link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/css/materialize.min.css")
+        script(src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/js/materialize.min.js")
+
+        link(rel='stylesheet', href='css/style.css')
+    body
+        form(method="post")
+            div.input-field
+                label(for="email") Email
+                input(type="email", name="mail", id="email")
+            div.input-field
+                label(for="password") Mot de Passe
+                input(type="password", name="password", id="password")
+            div.input-field
+                label(for="userName") Pseudo
+                input(type="text", name="userName", id="userName")
+            div.input-field
+                button(type="submit").waves-effect.waves-light.btn.red Register
+                a(href="/login") Log In
+
+
+

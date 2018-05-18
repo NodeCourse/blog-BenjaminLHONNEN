@@ -1,0 +1,55 @@
+doctype html
+html(lang='fr')
+    head
+        meta(charset='UTF-8')
+        title B & J
+
+        link(rel="icon" type="image/png" href="img/icon.png")
+
+        link(rel='stylesheet', href='https://use.fontawesome.com/releases/v5.0.12/css/all.css', integrity='sha384-G0fIWCsCzJIMAVNQPfjH08cyYaUtMwjJwqiRKxxE/rx96Uroj1BtIQ6MLJuheaO9', crossorigin='anonymous')
+        link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/css/materialize.min.css")
+        link(rel='stylesheet', href='css/style.css')
+
+        script(src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+        script(src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/js/materialize.min.js")
+        script(src='https://cdn.jsdelivr.net/npm/vue')
+
+
+    body
+        div.navbar-fixed
+            nav.red
+                div.nav-wrapper
+                    a.brand-logo(href='/')
+                        span B&J
+
+                    ul#nav-mobile.right.hide-on-med-and-down
+                        li
+                            a(href='/') Accueil
+                        li
+                            a(href='/addReview') Ajouter Une Review
+                        li
+                            a.dropdown-trigger(href='#' data-target='dropdown1') Hello #{user.userName}
+
+                    ul#dropdown1.dropdown-content
+                        li
+                            a(href="/disconnect").red-text Disconnect
+
+
+        div.container
+            h3 Ajouter Un Jeu :
+                form.addArticle(method='POST', action='/api/addArticle')
+                    input(type='hidden', name='type', value='add')
+                    div.input-field
+                        label(for="nomDuJeu") Nom du Jeu :
+                        input(type='text' id="nomDuJeu" name='NomJeu')
+                    div.input-field
+                        label(for="review") Review :
+                        textarea(name='Review' id="review").materialize-textarea
+                    div.input-field
+                        label(for="note") Note sur 20 :
+                        input(type="number" id="note" name='Note')
+                    div.input-field
+                        button(type='submit').waves-effect.waves-light.btn.red  Envoyer !
+
+        script.
+            $('.dropdown-trigger').dropdown();

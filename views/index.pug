@@ -1,29 +1,166 @@
-html
+doctype html
+html(lang='fr')
     head
-        title BenJ
-        link(rel="stylesheet", href="/css/style.css")
-        link(rel="stylesheet", href="https://use.fontawesome.com/releases/v5.0.13/css/all.css", integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp", crossorigin="anonymous")
-        script(src="/js/index.js")
+        meta(charset='UTF-8')
+        title B & J
+
+        link(rel="icon" type="image/png" href="img/icon.png")
+
+        link(rel='stylesheet', href='https://use.fontawesome.com/releases/v5.0.12/css/all.css', integrity='sha384-G0fIWCsCzJIMAVNQPfjH08cyYaUtMwjJwqiRKxxE/rx96Uroj1BtIQ6MLJuheaO9', crossorigin='anonymous')
+        link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/css/materialize.min.css")
+        link(rel='stylesheet', href='css/style.css')
+
+        script(src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+        script(src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-beta/js/materialize.min.js")
+        script(src='https://cdn.jsdelivr.net/npm/vue')
+
+
     body
-        main
+        div.navbar-fixed
+            nav.red
+                div.nav-wrapper
+                    a.brand-logo(href='/')
+                        span B&J
 
-            ul
-                for item in articles
-                    li
-                        h3=item.titre
-                        p=item.article
-                        p
-                            button(type="text", onclick="addIdToHiddenInput(" + item.id + ",'plus')" ) +
-                            span=item.upVote
-                        p
-                            button(type="text", onclick="addIdToHiddenInput(" + item.id + ",'less')" ) -
-                            span=item.downVote
-                        form(method="POST", action="/", id="form-" + item.id )
-                            input(type="hidden", name="id", value = item.id)
-                            input(type="hidden", id="changeValue-" + item.id , name="type", value="none")
+                    ul#nav-mobile.right.hide-on-med-and-down
+                        li
+                            a(href='/') Accueil
+                        li
+                            a(href='/addReview') Ajouter Une Review
+                        li
+                            a.dropdown-trigger(href='#' data-target='dropdown1') Hello #{user.userName}
 
-    form(method="POST", action="/").addArticle
-        input(type="hidden", name="type", value="add")
-        input(type="text", name="titre", placeholder="Titre")
-        textarea(name="article", placeholder="Article")
-        button(type="submit") Envoyer !
+
+                    ul#dropdown1.dropdown-content
+                        li
+                            a(href="/disconnect").red-text Disconnect
+
+        div.container
+            h3 Les reviews :
+            #app
+                p(v-if="!reviews") Aucune Review
+
+                ul.listArticle
+                    li(v-for='item in reviews')
+                        .reviewText
+                            h3 {{item.NomJeu}}
+                            p {{item.Review}}
+                            .buttonList
+                                div
+                                    span {{item.Note}} / 20
+
+                                div
+                                    button(
+                                        :onclick="!item.voteUp && !item.voteDown ? 'addUpToArticle(' + item.id + ')' : ''"
+                                        v-bind:class="[!item.voteUp && !item.voteDown ? 'red waves-effect waves-light' : ''," +
+                                        "item.voteUp && !item.voteDown ? 'red lighten-2' : ''," +
+                                        "!item.voteUp && item.voteDown ? 'red lighten-4' : '']"
+                                        ).btn
+                                        i.fas.fa-thumbs-up.fa-fw
+                                        span {{item.upVoteCount}}
+
+                                div
+                                    button(
+                                    :onclick="!item.voteUp && !item.voteDown ? 'addDownToArticle(' + item.id + ')' : ''"
+                                    v-bind:class="[!item.voteUp && !item.voteDown ? 'red waves-effect waves-light' : ''," +
+                                    "!item.voteUp && item.voteDown ? 'red lighten-2' : ''," +
+                                    "item.voteUp && !item.voteDown ? 'red lighten-4' : '']"
+                                    ).btn
+                                        i.fas.fa-thumbs-down.fa-fw
+                                        span {{item.downVoteCount}}
+                        .listComment
+                            ul
+                                li Comments :
+                                li(v-for='comment in item.comments').row.no-margin
+                                    .col.s3.b-r {{comment.user.userName}}
+                                    .col.s9 {{comment.comment}}
+                        .addComment.row
+                            div.input-field.col.s10
+                                label(:for="'textarea-' + item.id") Commentez :
+                                textarea(:id="'textarea-' + item.id").materialize-textarea
+                            div.input-field.col.s2
+                                button(:onclick="'getTextareaValueByArticleId(' + item.id + ',addComment)'").waves-effect.waves-light.btn.red Send !
+            script.
+                $('.dropdown-trigger').dropdown();
+                var getJSON = function (url, callback) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.responseType = 'json';
+                    xhr.onloadend = function () {
+                        var status = xhr.status;
+                        if (status === 200) {
+                            callback(null, xhr.response);
+                        } else {
+                            callback(status, xhr.response);
+                        }
+                    };
+                    xhr.send();
+                };
+                var app = new Vue({
+                    el: '#app',
+                    data: {
+                        reviews: null
+                    }
+                });
+
+                function loadArticles() {
+                    app.reviews = null;
+                    getJSON("/api/getAllReviews",
+                        function (err, data) {
+                            if (err !== null) {
+                                console.error("Erreur : ", err)
+                            } else {
+                                console.log(data);
+                                app.reviews = data;
+                                console.log("app.articles :", app.reviews);
+                            }
+                        });
+                }
+                function addUpToArticle(id) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', "/api/addUpVote-" + id, true);
+                    xhr.onloadend = function () {
+                        var status = xhr.status;
+                        if (status === 200) {
+                            console.log("addUpToArticle Succes");
+                            loadArticles();
+                        } else {
+                            console.error("addUpToArticle(" + id + ") : ", xhr.response, "response code : " + status);
+                        }
+                    };
+                    xhr.send();
+                }
+                function addDownToArticle(id) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', "/api/addDownVote-" + id, true);
+                    xhr.onloadend = function () {
+                        var status = xhr.status;
+                        if (status === 200) {
+                            console.log("addDownToArticle Succes");
+                            loadArticles();
+                        } else {
+                            console.error("addDownToArticle(" + id + ") : ", xhr.response, "response code : " + status);
+                        }
+                    };
+                    xhr.send();
+                }
+                function getTextareaValueByArticleId(id, callback) {
+                    var textarea = document.getElementById("textarea-" + id);
+                    callback(id, textarea.value);
+                }
+                function addComment(id, comment) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", "/api/addComment-" + id, true);
+                    xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                    xhr.onloadend = function () {
+                        var status = xhr.status;
+                        if (status === 200) {
+                            console.log("addComment Succes");
+                            loadArticles();
+                        } else {
+                            console.error("addComment(" + id + ") : ", xhr.response, "response code : " + status);
+                        }
+                    };
+                    xhr.send("comment=" + comment);
+                }
+                loadArticles();

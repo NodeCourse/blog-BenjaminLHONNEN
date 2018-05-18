@@ -3,112 +3,324 @@ const bodyParser = require('body-parser');
 const app = express();
 const mysql2 = require('mysql2');
 const Sequelize = require('sequelize');
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
-const db = new Sequelize('node', 'root', '', {
+const db = new Sequelize('gamereview', 'root', '', {
     host: 'localhost',
     dialect: 'mysql'
 });
 
-const Article = db.define('article', {
-    titre: {type: Sequelize.STRING},
-    article: {type: Sequelize.STRING},
-    upVote: {type: Sequelize.INTEGER},
-    downVote: {type: Sequelize.INTEGER}
+const Review = db.define('article', {
+    NomJeu: {type: Sequelize.STRING},
+    Review: {type: Sequelize.TEXT},
+    Note: {type: Sequelize.INTEGER},
 });
+const UpVote = db.define('upvote', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+});
+const DownVote = db.define('downvote', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+});
+const Comment = db.define('comment', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+    comment: {type: Sequelize.TEXT},
+});
+
+const User = db.define('user', {
+    mail: {type: Sequelize.STRING},
+    password: {type: Sequelize.STRING},
+    userName: {type: Sequelize.STRING},
+});
+
+const COOKIE_SECRET = 'le mage noir';
+
+Review.hasMany(Comment, {foreignKey: 'idReview'});
+Comment.belongsTo(Review, {foreignKey: 'idReview'});
+User.hasMany(Comment, {foreignKey: 'idUser'});
+Comment.belongsTo(User, {foreignKey: 'idUser'});
+
+User.sync();
+UpVote.sync();
+DownVote.sync();
+Comment.sync();
+Review.sync();
 
 app.set('view engine', 'pug');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+app.use(cookieParser(COOKIE_SECRET));
+// Keep track of user sessions
+app.use(session({
+    secret: COOKIE_SECRET,
+    resave: false,
+    saveUninitialized: false
+}));
+
+// Initialize passport, it must come after Express' session() middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+
 app.get('/', (req, res) => {
-    Article
-        .sync()
-        .then(() => {
-            return Article.findAll();
-        })
-        .then((articles) => {
-            res.render('index', {articles});
-        });
+    if (req.user !== undefined && req.user !== null) {
+        console.log(req.user);
+        res.render('index', {user: req.user.dataValues});
+    } else {
+        res.redirect("/login");
+    }
 });
 
-app.post('/', (req, res) => {
+
+app.get('/addReview', (req, res) => {
+    if (req.user !== undefined && req.user !== null) {
+        console.log(req.user);
+        res.render('addReview', {user: req.user.dataValues});
+    } else {
+        res.redirect("/login");
+    }
+});
+app.get('/disconnect', (req, res) => {
+    req.user = null;
+    res.redirect('login');
+});
 
 
-    if (req.body.type === "add") {
-        Article
+app.get('/api/getAllReviews', (req, res) => {
+    if (req.user !== undefined && req.user !== null) {
+        let resp = [];
+        Review
             .sync()
             .then(() => {
-                Article.create({
-                    titre: req.body.titre,
-                    article: req.body.article,
-                    upVote: 0,
-                    downVote: 0,
+                return Review.findAll({
+                    include: [
+                        {model: Comment, include: User}
+                    ]
                 });
             })
-            .then(() => {
-                Article
-                    .sync()
-                    .then(() => {
-                        return Article.findAll();
-                    })
-                    .then((articles) => {
-                        res.render('index', {articles});
-                    });
-            });
-    } else if (req.body.type === "plus") {
-        Article
-            .sync()
-            .then(() => {
-                return Article.find({where: {id: req.body.id}});
+            .then((articles) => {
+                articles.forEach(async function (value, index, array) {
+                    let obj = array[index].dataValues;
+                    await DownVote
+                        .count({where: {idReview: obj.id}})
+                        .then(function (downVoteCount) {
+                            obj['downVoteCount'] = downVoteCount;
+                        });
+                    await DownVote
+                        .find({
+                            where: {
+                                idReview: obj.id,
+                                idUser: req.user.id
+                            }
+                        })
+                        .then(function (upVote) {
+                            obj['voteDown'] = upVote;
+                        });
+
+                    await UpVote
+                        .count({where: {idReview: obj.id}})
+                        .then(function (upVoteCount) {
+                            obj['upVoteCount'] = upVoteCount;
+                        });
+                    await UpVote
+                        .find({
+                            where: {
+                                idReview: obj.id,
+                                idUser: req.user.id
+                            }
+                        })
+                        .then(function (downVote) {
+                            obj['voteUp'] = downVote;
+                        });
+
+                    resp.push(obj);
+                    if (index === array.length - 1) {
+                        res.setHeader('Content-Type', 'application/json');
+                        res.send(JSON.stringify(resp));
+                    }
+                });
             })
-            .then((article) => {
-                console.log(article);
-                Article.update(
-                    {upVote: article.upVote + 1},
-                    {where: {id: article.id}}
-                )
-            })
-            .then(() => {
-                Article
-                    .sync()
-                    .then(() => {
-                        return Article.findAll();
-                    })
-                    .then((articles) => {
-                        res.render('index', {articles});
-                    });
-            });
-    } else if (req.body.type === "less") {
-        Article
-            .sync()
-            .then(() => {
-                return Article.find({where: {id: req.body.id}});
-            })
-            .then((article) => {
-                console.log(article);
-                Article.update(
-                    {downVote: article.downVote + 1},
-                    {where: {id: article.id}}
-                )
-            })
-            .then(() => {
-                Article
-                    .sync()
-                    .then(() => {
-                        return Article.findAll();
-                    })
-                    .then((articles) => {
-                        res.render('index', {articles});
-                    });
-            });
+    } else {
+        res.send("403");
     }
 
 });
 
-app.get('/detail', (req, res) => {
-    res.render('detail');
+app.post('/api/addArticle', (req, res) => {
+    Review
+        .sync()
+        .then(() => {
+            Review.create({
+                NomJeu: req.body.NomJeu,
+                Review: req.body.Review,
+                Note: req.body.Note,
+            });
+        })
+        .then(() => {
+            res.redirect("/");
+        });
+});
+app.get('/api/addUpVote-:idReview', (req, res) => {
+    UpVote
+        .sync()
+        .then(() => {
+            return UpVote.find({
+                where: {
+                    idReview: req.params.idReview,
+                    idUser: req.user.id,
+                }
+            })
+        })
+        .then((upvote) => {
+            if (upvote === null) {
+                return DownVote.find({
+                    where: {
+                        idReview: req.params.idReview,
+                        idUser: req.user.id,
+                    }
+                })
+            } else {
+                return 1;
+            }
+        })
+        .then((downvote) => {
+            if (downvote === null) {
+                UpVote.create({
+                    idReview: req.params.idReview,
+                    idUser: 1,
+                });
+                res.send(200);
+            } else {
+                res.send(403);
+            }
+        })
+});
+app.get('/api/addDownVote-:idReview', (req, res) => {
+    DownVote
+        .sync()
+        .then(() => {
+            return UpVote.find({
+                where: {
+                    idReview: req.params.idReview,
+                    idUser: req.user.id,
+                }
+            })
+        })
+        .then((upvote) => {
+            if (upvote === null) {
+                return DownVote.find({
+                    where: {
+                        idReview: req.params.idReview,
+                        idUser: req.user.id,
+                    }
+                })
+            } else {
+                return 1;
+            }
+        })
+        .then((downvote) => {
+            if (downvote === null) {
+                DownVote.create({
+                    idReview: req.params.idReview,
+                    idUser: req.user.id,
+                });
+                res.send(200);
+            } else {
+                res.send(403);
+            }
+        })
+});
+app.post('/api/addComment-:idReview', (req, res) => {
+    Comment
+        .sync()
+        .then(() => {
+            Comment.create({
+                idReview: req.params.idReview,
+                idUser: 1,
+                comment: req.body.comment,
+            });
+        })
+        .then(() => {
+            res.send(200);
+        });
 });
 
+app.get('/register', (req, res) => {
+    // Render the login page
+    res.render('register');
+});
+app.post('/register', (req, res) => {
+    User
+        .sync()
+        .then(() => {
+            return User.create({
+                mail: req.body.mail,
+                password: req.body.password,
+                userName: req.body.userName,
+            });
+        })
+        .then((user) => {
+            user = user.dataValues;
+            console.error(user);
+            req.login(user, function (err) {
+                if (err) {
+                    console.error(err);
+                    res.redirect('/register');
+                } else {
+                    res.redirect('/');
+                }
+            });
+        })
+        .catch(() => {
+            res.send(500);
+        });
+});
+app.post('/login', passport.authenticate('local', {
+    successRedirect: '/',
+    failureRedirect: '/login'
+}));
+
+app.get('/login', (req, res) => {
+    // Render the login page
+    res.render('login');
+});
+
+passport.serializeUser((user, cb) => {
+    cb(null, user.mail);
+});
+passport.deserializeUser((mail, cb) => {
+    // Get a user from a cookie's content: his email
+    User
+        .findOne({where: {mail}})
+        .then((user) => {
+            cb(null, user);
+        })
+        .catch(cb);
+});
+
+passport.use(new LocalStrategy((mail, password, done) => {
+    User
+        .findOne({where: {mail}})
+        .then(function (user) {
+            if (!user || user.dataValues.password !== password) {
+                // User not found or an invalid password has been provided
+                return done(null, false, {
+                    message: 'Invalid credentials'
+                });
+            }
+
+            // User found
+            return done(null, user);
+        })
+        // If an error occured, report it
+        .catch(done);
+}));
 
 app.listen(3000);
