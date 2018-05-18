@@ -7,49 +7,11 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const bcrypt = require('bcrypt');
 
-const db = new Sequelize('gamereview', 'root', '', {
-    host: 'localhost',
-    dialect: 'mysql'
-});
-
-const Review = db.define('article', {
-    NomJeu: {type: Sequelize.STRING},
-    Review: {type: Sequelize.TEXT},
-    Note: {type: Sequelize.INTEGER},
-});
-const UpVote = db.define('upvote', {
-    idReview: {type: Sequelize.INTEGER},
-    idUser: {type: Sequelize.INTEGER},
-});
-const DownVote = db.define('downvote', {
-    idReview: {type: Sequelize.INTEGER},
-    idUser: {type: Sequelize.INTEGER},
-});
-const Comment = db.define('comment', {
-    idReview: {type: Sequelize.INTEGER},
-    idUser: {type: Sequelize.INTEGER},
-    comment: {type: Sequelize.TEXT},
-});
-
-const User = db.define('user', {
-    mail: {type: Sequelize.STRING},
-    password: {type: Sequelize.STRING},
-    userName: {type: Sequelize.STRING},
-});
-
+const saltRounds = 12;
 const COOKIE_SECRET = 'le mage noir';
 
-Review.hasMany(Comment, {foreignKey: 'idReview'});
-Comment.belongsTo(Review, {foreignKey: 'idReview'});
-User.hasMany(Comment, {foreignKey: 'idUser'});
-Comment.belongsTo(User, {foreignKey: 'idUser'});
-
-User.sync();
-UpVote.sync();
-DownVote.sync();
-Comment.sync();
-Review.sync();
 
 app.set('view engine', 'pug');
 app.use(bodyParser.urlencoded({extended: true}));
@@ -101,7 +63,10 @@ app.get('/api/getAllReviews', (req, res) => {
             .then(() => {
                 return Review.findAll({
                     include: [
-                        {model: Comment, include: User}
+                        {
+                            model: Comment,
+                            include: User,
+                        }
                     ]
                 });
             })
@@ -171,30 +136,35 @@ app.get('/api/addUpVote-:idReview', (req, res) => {
     UpVote
         .sync()
         .then(() => {
-            return UpVote.find({
+            return DownVote.find({
                 where: {
                     idReview: req.params.idReview,
                     idUser: req.user.id,
                 }
             })
         })
-        .then((upvote) => {
-            if (upvote === null) {
-                return DownVote.find({
+        .then((downvote) => {
+            if (downvote === null) {
+                return UpVote.find({
                     where: {
                         idReview: req.params.idReview,
                         idUser: req.user.id,
                     }
                 })
             } else {
-                return 1;
+                DownVote.destroy({
+                    where:{
+                        id: downvote.id
+                    }
+                });
+                return true;
             }
         })
-        .then((downvote) => {
-            if (downvote === null) {
+        .then((create) => {
+            if (create === true || create === null) {
                 UpVote.create({
                     idReview: req.params.idReview,
-                    idUser: 1,
+                    idUser: req.user.id,
                 });
                 res.send(200);
             } else {
@@ -222,11 +192,16 @@ app.get('/api/addDownVote-:idReview', (req, res) => {
                     }
                 })
             } else {
-                return 1;
+                UpVote.destroy({
+                    where: {
+                        id: upvote.id
+                    }
+                });
+                return true;
             }
         })
-        .then((downvote) => {
-            if (downvote === null) {
+        .then((create) => {
+            if (create === true || create === null) {
                 DownVote.create({
                     idReview: req.params.idReview,
                     idUser: req.user.id,
@@ -243,7 +218,7 @@ app.post('/api/addComment-:idReview', (req, res) => {
         .then(() => {
             Comment.create({
                 idReview: req.params.idReview,
-                idUser: 1,
+                idUser: req.user.id,
                 comment: req.body.comment,
             });
         })
@@ -257,30 +232,41 @@ app.get('/register', (req, res) => {
     res.render('register');
 });
 app.post('/register', (req, res) => {
-    User
-        .sync()
-        .then(() => {
-            return User.create({
-                mail: req.body.mail,
-                password: req.body.password,
-                userName: req.body.userName,
-            });
-        })
-        .then((user) => {
-            user = user.dataValues;
-            console.error(user);
-            req.login(user, function (err) {
-                if (err) {
-                    console.error(err);
-                    res.redirect('/register');
-                } else {
-                    res.redirect('/');
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        User
+            .sync()
+            .then(() => {
+                User.find({
+                    where: {
+                        mail: req.body.userName,
+                    }
+                })
+            })
+            .then((user) => {
+                if (user === null) {
+                    return User.create({
+                        mail: req.body.userName,
+                        password: hash,
+                        userName: req.body.pseudo,
+                    });
                 }
+            })
+            .then((user) => {
+                user = user.dataValues;
+                console.error(user);
+                req.login(user, function (err) {
+                    if (err) {
+                        console.error(err);
+                        res.redirect('/register');
+                    } else {
+                        res.redirect('/');
+                    }
+                });
+            })
+            .catch(() => {
+                res.send(500);
             });
-        })
-        .catch(() => {
-            res.send(500);
-        });
+    });
 });
 app.post('/login', passport.authenticate('local', {
     successRedirect: '/',
@@ -309,18 +295,67 @@ passport.use(new LocalStrategy((mail, password, done) => {
     User
         .findOne({where: {mail}})
         .then(function (user) {
-            if (!user || user.dataValues.password !== password) {
-                // User not found or an invalid password has been provided
+            if (user) {
+                bcrypt.compare(password, user.dataValues.password, function (err, res) {
+                    if (res === true) {
+                        return done(null, user);
+                    } else {
+                        return done(null, false, {
+                            message: 'Invalid credentials'
+                        });
+                    }
+                });
+
+            } else {
                 return done(null, false, {
                     message: 'Invalid credentials'
                 });
             }
-
-            // User found
-            return done(null, user);
         })
         // If an error occured, report it
         .catch(done);
 }));
 
 app.listen(3000);
+
+//DataBase
+const db = new Sequelize('gamereview', 'root', '', {
+    host: 'localhost',
+    dialect: 'mysql'
+});
+const Review = db.define('article', {
+    NomJeu: {type: Sequelize.STRING},
+    Review: {type: Sequelize.TEXT},
+    Note: {type: Sequelize.INTEGER},
+});
+const UpVote = db.define('upvote', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+});
+const DownVote = db.define('downvote', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+});
+const Comment = db.define('comment', {
+    idReview: {type: Sequelize.INTEGER},
+    idUser: {type: Sequelize.INTEGER},
+    comment: {type: Sequelize.TEXT},
+});
+
+const User = db.define('user', {
+    mail: {type: Sequelize.STRING},
+    password: {type: Sequelize.STRING},
+    userName: {type: Sequelize.STRING},
+});
+
+Review.hasMany(Comment, {foreignKey: 'idReview'});
+Comment.belongsTo(Review, {foreignKey: 'idReview'});
+User.hasMany(Comment, {foreignKey: 'idUser'});
+Comment.belongsTo(User, {foreignKey: 'idUser'});
+
+User.sync();
+UpVote.sync();
+DownVote.sync();
+Comment.sync();
+Review.sync();
+

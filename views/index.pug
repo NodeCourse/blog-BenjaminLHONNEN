@@ -51,7 +51,7 @@ html(lang='fr')
 
                                 div
                                     button(
-                                        :onclick="!item.voteUp && !item.voteDown ? 'addUpToArticle(' + item.id + ')' : ''"
+                                        :onclick="'addUpToArticle(' + item.id + ')'"
                                         v-bind:class="[!item.voteUp && !item.voteDown ? 'red waves-effect waves-light' : ''," +
                                         "item.voteUp && !item.voteDown ? 'red lighten-2' : ''," +
                                         "!item.voteUp && item.voteDown ? 'red lighten-4' : '']"
@@ -61,7 +61,7 @@ html(lang='fr')
 
                                 div
                                     button(
-                                    :onclick="!item.voteUp && !item.voteDown ? 'addDownToArticle(' + item.id + ')' : ''"
+                                    :onclick="'addDownToArticle(' + item.id + ')'"
                                     v-bind:class="[!item.voteUp && !item.voteDown ? 'red waves-effect waves-light' : ''," +
                                     "!item.voteUp && item.voteDown ? 'red lighten-2' : ''," +
                                     "item.voteUp && !item.voteDown ? 'red lighten-4' : '']"
@@ -72,8 +72,8 @@ html(lang='fr')
                             ul
                                 li Comments :
                                 li(v-for='comment in item.comments').row.no-margin
-                                    .col.s3.b-r {{comment.user.userName}}
-                                    .col.s9 {{comment.comment}}
+                                    .col.s1.b-r {{comment.user.userName}}
+                                    .col.s11 {{comment.comment}}
                         .addComment.row
                             div.input-field.col.s10
                                 label(:for="'textarea-' + item.id") Commentez :
@@ -104,15 +104,13 @@ html(lang='fr')
                 });
 
                 function loadArticles() {
-                    app.reviews = null;
                     getJSON("/api/getAllReviews",
                         function (err, data) {
                             if (err !== null) {
                                 console.error("Erreur : ", err)
                             } else {
-                                console.log(data);
+                                app.reviews = null;
                                 app.reviews = data;
-                                console.log("app.articles :", app.reviews);
                             }
                         });
                 }
@@ -122,7 +120,6 @@ html(lang='fr')
                     xhr.onloadend = function () {
                         var status = xhr.status;
                         if (status === 200) {
-                            console.log("addUpToArticle Succes");
                             loadArticles();
                         } else {
                             console.error("addUpToArticle(" + id + ") : ", xhr.response, "response code : " + status);
@@ -136,7 +133,6 @@ html(lang='fr')
                     xhr.onloadend = function () {
                         var status = xhr.status;
                         if (status === 200) {
-                            console.log("addDownToArticle Succes");
                             loadArticles();
                         } else {
                             console.error("addDownToArticle(" + id + ") : ", xhr.response, "response code : " + status);
@@ -155,7 +151,6 @@ html(lang='fr')
                     xhr.onloadend = function () {
                         var status = xhr.status;
                         if (status === 200) {
-                            console.log("addComment Succes");
                             loadArticles();
                         } else {
                             console.error("addComment(" + id + ") : ", xhr.response, "response code : " + status);

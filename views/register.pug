@@ -11,19 +11,20 @@ html(lang='fr')
 
         link(rel='stylesheet', href='css/style.css')
     body
-        form(method="post")
-            div.input-field
-                label(for="email") Email
-                input(type="email", name="mail", id="email")
-            div.input-field
-                label(for="password") Mot de Passe
-                input(type="password", name="password", id="password")
-            div.input-field
-                label(for="userName") Pseudo
-                input(type="text", name="userName", id="userName")
-            div.input-field
-                button(type="submit").waves-effect.waves-light.btn.red Register
-                a(href="/login") Log In
+        div.container
+            form(method="post")
+                div.input-field
+                    label(for="userName") Email
+                    input(type="email", name="userName", id="userName" autocomplete="username")
+                div.input-field
+                    label(for="password") Mot de Passe
+                    input(type="password", name="password", id="password" autocomplete="password")
+                div.input-field
+                    label(for="pseudo") Pseudo
+                    input(type="text", name="pseudo", id="pseudo" autocomplete="pseudo")
+                div.input-field
+                    button(type="submit").waves-effect.waves-light.btn.red Register
+                    a(href="/login").waves-effect.waves-light.btn.red Log In
 
 
 
